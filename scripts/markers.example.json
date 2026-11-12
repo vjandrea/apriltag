@@ -1,0 +1,9 @@
+{
+  "family": "tagStandard41h12",
+  "tag_size_mm": 50,
+  "fields": [
+    ["CENTER", "CIRCLE"],
+    ["A", "B", {"from": 1, "to": 12}],
+    ["TL", "TR", "BL", "BR"]
+  ]
+}
