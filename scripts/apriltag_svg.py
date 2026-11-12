@@ -16,6 +16,9 @@ ID back into its label with decode() and no lookup table:
     }
 
 "CENTER A TL" is ID 0, "CENTER A TR" is 1, "CIRCLE 12 BR" is the last one.
+An optional "only" list of glob patterns limits which tags are written, e.g.
+["* TL", "* TR", "WALL L *"]; IDs don't change, so other labels keep theirs
+reserved for later.
 A value may contain single spaces ("BAR N", "CENTER C1"); files are named with
 underscores, e.g. CENTER_C1_TL.svg.
 Appending values to a field renumbers the fields before it, so add new values
@@ -32,6 +35,7 @@ Usage:
 """
 
 import argparse
+import fnmatch
 import itertools
 import json
 import re
@@ -125,6 +129,12 @@ def file_name(label):
     return label.replace(" ", "_") + ".svg"
 
 
+def selected(spec, names):
+    """(ID, label) pairs to write: all of them, or those matching spec["only"]."""
+    only = spec.get("only")
+    return [(i, n) for i, n in enumerate(names) if only is None or any(fnmatch.fnmatchcase(n, p) for p in only)]
+
+
 def encode(fields, label):
     return labels(fields).index(label)
 
@@ -158,9 +168,10 @@ def main():
         raise SystemExit(f"{len(names)} labels, but {spec['family']} has only {len(fam['codes'])} IDs")
     edge = spec["tag_size_mm"] * fam["total_width"] / fam["width_at_border"]
     args.out.mkdir(parents=True, exist_ok=True)
-    for idx, label in enumerate(names):
+    tags = selected(spec, names)
+    for idx, label in tags:
         (args.out / file_name(label)).write_text(to_svg(tag_grid(fam, idx), edge, f"{label} ({spec['family']} {idx})"))
-    print(f"{len(names)} tags in {args.out}, IDs 0-{len(names) - 1}, printed edge {edge:g} mm")
+    print(f"{len(tags)} of {len(names)} tags in {args.out}, printed edge {edge:g} mm")
 
 
 if __name__ == "__main__":

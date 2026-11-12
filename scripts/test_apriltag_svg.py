@@ -44,6 +44,11 @@ class TestApriltagSvg(unittest.TestCase):
         self.assertEqual(m.encode(fields, "BAR N BR"), 1)
         self.assertEqual(m.file_name("CENTER C1 BR"), "CENTER_C1_BR.svg")
 
+    def test_only_filters_without_renumbering(self):
+        names = m.labels([["WALL L", "BAR N"], ["TL", "T2"]])
+        self.assertEqual(m.selected({"only": ["* TL", "WALL L *"]}, names), [(0, "WALL L TL"), (1, "WALL L T2"), (2, "BAR N TL")])
+        self.assertEqual(len(m.selected({}, names)), 4)
+
     def test_rejects_labels_that_collide(self):
         with self.assertRaises(SystemExit):
             m.labels([["A B", "A"], ["C", "B C"]])
