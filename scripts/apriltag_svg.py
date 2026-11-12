@@ -16,6 +16,8 @@ ID back into its label with decode() and no lookup table:
     }
 
 "CENTER A TL" is ID 0, "CENTER A TR" is 1, "CIRCLE 12 BR" is the last one.
+A value may contain single spaces ("BAR N", "CENTER C1"); files are named with
+underscores, e.g. CENTER_C1_TL.svg.
 Appending values to a field renumbers the fields before it, so add new values
 only before printing, or add a new field at the front.
 
@@ -36,7 +38,7 @@ import re
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-VALUE = re.compile(r"[A-Za-z0-9_.-]+")  # values become file names
+VALUE = re.compile(r"[A-Za-z0-9_.-]+( [A-Za-z0-9_.-]+)*")  # values become file names; single inner spaces allowed
 
 
 def load_family(name, src=REPO):
@@ -112,14 +114,19 @@ def field_values(spec):
 
 def labels(fields):
     """All labels in ID order."""
-    return [" ".join(p) for p in itertools.product(*fields)]
+    names = [" ".join(p) for p in itertools.product(*fields)]
+    files = {file_name(n) for n in names}
+    if len(files) != len(names):  # "A B"+"C" and "A"+"B C" would share a label
+        raise SystemExit("two labels produce the same name; rename a field value")
+    return names
+
+
+def file_name(label):
+    return label.replace(" ", "_") + ".svg"
 
 
 def encode(fields, label):
-    idx = 0
-    for values, part in zip(fields, label.split(), strict=True):
-        idx = idx * len(values) + values.index(part)
-    return idx
+    return labels(fields).index(label)
 
 
 def decode(fields, idx):
@@ -152,7 +159,7 @@ def main():
     edge = spec["tag_size_mm"] * fam["total_width"] / fam["width_at_border"]
     args.out.mkdir(parents=True, exist_ok=True)
     for idx, label in enumerate(names):
-        (args.out / f"{label.replace(' ', '_')}.svg").write_text(to_svg(tag_grid(fam, idx), edge, f"{label} ({spec['family']} {idx})"))
+        (args.out / file_name(label)).write_text(to_svg(tag_grid(fam, idx), edge, f"{label} ({spec['family']} {idx})"))
     print(f"{len(names)} tags in {args.out}, IDs 0-{len(names) - 1}, printed edge {edge:g} mm")
 
 

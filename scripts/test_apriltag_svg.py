@@ -38,8 +38,18 @@ class TestApriltagSvg(unittest.TestCase):
         with self.assertRaises(ValueError):
             m.decode(fields, len(names))
 
+    def test_values_may_contain_spaces(self):
+        fields = m.field_values({"fields": [["BAR N", "L4", "CENTER C1"], ["TL", "BR"]]})
+        self.assertEqual(m.decode(fields, 5), "CENTER C1 BR")
+        self.assertEqual(m.encode(fields, "BAR N BR"), 1)
+        self.assertEqual(m.file_name("CENTER C1 BR"), "CENTER_C1_BR.svg")
+
+    def test_rejects_labels_that_collide(self):
+        with self.assertRaises(SystemExit):
+            m.labels([["A B", "A"], ["C", "B C"]])
+
     def test_rejects_unsafe_or_duplicate_values(self):
-        for field in (["A/B"], ["A", "A"]):
+        for field in (["A/B"], ["A", "A"], ["A  B"], [" A"]):
             with self.assertRaises(SystemExit):
                 m.field_values({"fields": [field]})
 
