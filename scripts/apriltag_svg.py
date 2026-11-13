@@ -28,6 +28,8 @@ cell_px is the size of one tag cell in pixels, a whole number so every edge
 lands on a pixel. Each SVG is a white sheet: the tag, a quiet zone of
 "margin_cells" cells (default 1) and a footer row with the label and ID, so a
 tagStandard41h12 sheet is 11 x 12 cells (88 x 96 px at cell_px 8).
+To give tags different sizes, replace "only" and "cell_px" with a "groups" list
+of {"only": [...], "cell_px": n} objects; a label may match only one group.
 
 Usage:
     apriltag_svg.py spec.json -o out/      write one <LABEL>.svg per tag
@@ -171,15 +173,21 @@ def main():
     names = labels(fields)
     if len(names) > len(fam["codes"]):
         raise SystemExit(f"{len(names)} labels, but {spec['family']} has only {len(fam['codes'])} IDs")
-    cell, margin, n = spec["cell_px"], spec.get("margin_cells", 1), fam["total_width"]
-    if not isinstance(cell, int) or cell < 1:
-        raise SystemExit("cell_px must be a whole number of pixels")
+    margin, n = spec.get("margin_cells", 1), fam["total_width"]
+    groups = [(g, selected(g, names)) for g in spec.get("groups", [spec])]
+    done = [label for _, tags in groups for _, label in tags]
+    if len(set(done)) != len(done):
+        raise SystemExit("a label matches more than one group")
     args.out.mkdir(parents=True, exist_ok=True)
-    tags = selected(spec, names)
-    for idx, label in tags:
-        svg = to_svg(tag_grid(fam, idx), cell, f"{label} ({spec['family']} {idx})", f"{label} · {idx}", margin)
-        (args.out / file_name(label)).write_text(svg, encoding="utf-8")
-    print(f"{len(tags)} of {len(names)} tags in {args.out}, tag {n * cell} px, sheet {(n + 2 * margin) * cell} x {(n + 2 * margin + 1) * cell} px")
+    for g, tags in groups:
+        cell = g["cell_px"]
+        if not isinstance(cell, int) or cell < 1:
+            raise SystemExit("cell_px must be a whole number of pixels")
+        for idx, label in tags:
+            svg = to_svg(tag_grid(fam, idx), cell, f"{label} ({spec['family']} {idx})", f"{label} · {idx}", margin)
+            (args.out / file_name(label)).write_text(svg, encoding="utf-8")
+        print(f"{len(tags):3} tags, tag {n * cell} px, sheet {(n + 2 * margin) * cell} x {(n + 2 * margin + 1) * cell} px: {', '.join(g.get('only', ['all']))}")
+    print(f"{len(done)} of {len(names)} tags in {args.out}")
 
 
 if __name__ == "__main__":

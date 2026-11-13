@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 
 import apriltag_svg as m
 
@@ -48,6 +49,20 @@ class TestApriltagSvg(unittest.TestCase):
         names = m.labels([["WALL L", "BAR N"], ["TL", "T2"]])
         self.assertEqual(m.selected({"only": ["* TL", "WALL L *"]}, names), [(0, "WALL L TL"), (1, "WALL L T2"), (2, "BAR N TL")])
         self.assertEqual(len(m.selected({}, names)), 4)
+
+    def test_groups_must_not_overlap(self):
+        import json, subprocess, sys, tempfile
+        spec = {"family": "tagStandard41h12", "fields": [["A", "B"], ["TL", "TR"]],
+                "groups": [{"only": ["A *"], "cell_px": 4}, {"only": ["* TL"], "cell_px": 8}]}
+        with tempfile.TemporaryDirectory() as d:
+            Path(d, "s.json").write_text(json.dumps(spec))
+            run = subprocess.run([sys.executable, m.__file__, f"{d}/s.json", "-o", d], capture_output=True, text=True)
+            self.assertIn("more than one group", run.stderr)
+            spec["groups"][1]["only"] = ["B TL"]
+            Path(d, "s.json").write_text(json.dumps(spec))
+            subprocess.run([sys.executable, m.__file__, f"{d}/s.json", "-o", d], check=True, capture_output=True)
+            self.assertIn('width="88"', Path(d, "B_TL.svg").read_text())
+            self.assertIn('width="44"', Path(d, "A_TR.svg").read_text())
 
     def test_rejects_labels_that_collide(self):
         with self.assertRaises(SystemExit):
