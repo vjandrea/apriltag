@@ -1,6 +1,6 @@
 {
   "family": "tagStandard41h12",
-  "tag_size_mm": 50,
+  "cell_px": 8,
   "fields": [
     ["CENTER", "CIRCLE"],
     ["A", "B", {"from": 1, "to": 12}],

@@ -7,7 +7,7 @@ ID back into its label with decode() and no lookup table:
 
     {
       "family": "tagStandard41h12",
-      "tag_size_mm": 50,
+      "cell_px": 8,
       "fields": [
         ["CENTER", "CIRCLE"],
         ["A", "B", {"from": 1, "to": 12}],
@@ -24,10 +24,10 @@ underscores, e.g. CENTER_C1_TL.svg.
 Appending values to a field renumbers the fields before it, so add new values
 only before printing, or add a new field at the front.
 
-tag_size_mm is the detector's tag size (the edge where the black and white
-borders meet, see README.md); the SVG is drawn larger to include the outer
-border. Each SVG is a white sheet: the tag, a quiet zone of "margin_cells"
-cells (default 1) and a footer row with the label and ID.
+cell_px is the size of one tag cell in pixels, a whole number so every edge
+lands on a pixel. Each SVG is a white sheet: the tag, a quiet zone of
+"margin_cells" cells (default 1) and a footer row with the label and ID, so a
+tagStandard41h12 sheet is 11 x 12 cells (88 x 96 px at cell_px 8).
 
 Usage:
     apriltag_svg.py spec.json -o out/      write one <LABEL>.svg per tag
@@ -86,7 +86,7 @@ def tag_grid(fam, idx):
     return grid
 
 
-def to_svg(grid, edge_mm, title, caption, margin=1):
+def to_svg(grid, cell_px, title, caption, margin=1):
     """The tag on a white sheet: `margin` cells of quiet zone, then a footer row with the caption."""
     n = len(grid)
     black = []
@@ -96,9 +96,8 @@ def to_svg(grid, edge_mm, title, caption, margin=1):
             if v == 0:
                 black.append(f"M{cells[0][0]} {y}h{len(cells)}v1h-{len(cells)}z")
     w, h = n + 2 * margin, n + 2 * margin + 1
-    cell = edge_mm / n
     return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{w * cell:g}mm" height="{h * cell:g}mm" '
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{w * cell_px}" height="{h * cell_px}" '
         f'viewBox="{-margin} {-margin} {w} {h}">\n'
         f"<title>{escape(title)}</title>\n"
         f'<rect x="{-margin}" y="{-margin}" width="{w}" height="{h}" fill="#fff"/>\n'
@@ -172,16 +171,15 @@ def main():
     names = labels(fields)
     if len(names) > len(fam["codes"]):
         raise SystemExit(f"{len(names)} labels, but {spec['family']} has only {len(fam['codes'])} IDs")
-    tag_edge = spec["tag_size_mm"] * fam["total_width"] / fam["width_at_border"]
-    margin = spec.get("margin_cells", 1)
-    cell = tag_edge / fam["total_width"]
-    sheet = f'{cell * (fam["total_width"] + 2 * margin):g} x {cell * (fam["total_width"] + 2 * margin + 1):g}'
+    cell, margin, n = spec["cell_px"], spec.get("margin_cells", 1), fam["total_width"]
+    if not isinstance(cell, int) or cell < 1:
+        raise SystemExit("cell_px must be a whole number of pixels")
     args.out.mkdir(parents=True, exist_ok=True)
     tags = selected(spec, names)
     for idx, label in tags:
-        svg = to_svg(tag_grid(fam, idx), tag_edge, f"{label} ({spec['family']} {idx})", f"{label} · {idx}", margin)
+        svg = to_svg(tag_grid(fam, idx), cell, f"{label} ({spec['family']} {idx})", f"{label} · {idx}", margin)
         (args.out / file_name(label)).write_text(svg, encoding="utf-8")
-    print(f"{len(tags)} of {len(names)} tags in {args.out}, tag {tag_edge:g} mm, sheet {sheet} mm")
+    print(f"{len(tags)} of {len(names)} tags in {args.out}, tag {n * cell} px, sheet {(n + 2 * margin) * cell} x {(n + 2 * margin + 1) * cell} px")
 
 
 if __name__ == "__main__":
